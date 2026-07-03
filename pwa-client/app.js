@@ -248,7 +248,7 @@ function appendTranscript(role, text) {
   const box = $("transcript-box");
   const line = document.createElement("div");
   line.className = `transcript-line ${role}`;
-  line.innerHTML = `<span class="who">${role === "ai" ? "AI" : "You"}</span>${escapeHtml(text)}`;
+  line.innerHTML = `<span class="who">${role === "ai" ? "AI" : "You"}</span> ${escapeHtml(text)}`;
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
 }

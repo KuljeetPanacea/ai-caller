@@ -71,7 +71,7 @@ function registerSocketHandlers(io) {
 
         socket.join(callRoom(callId));
 
-        // Tell the Python AI server to spin up a Gemini Live session + WebRTC peer for this call.
+        // Tell the Python backend server to spin up a WebRTC peer for this call.
         const user = await User.findById(call.userId);
         await startAiSession({
           callId,

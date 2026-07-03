@@ -8,10 +8,10 @@ load_dotenv()
 
 import socketio
 from aiortc.sdp import candidate_from_sdp
-from aiortc import RTCIceCandidate
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from interview_manager import VoiceInterviewManager
 from webrtc_session import CallSession
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +23,10 @@ INTERNAL_SHARED_SECRET = os.getenv("INTERNAL_SHARED_SECRET", "")
 app = FastAPI(title="AI Voice Server")
 sio = socketio.AsyncClient(reconnection=True)
 
+# sessions holds active CallSession objects
 sessions: dict[str, CallSession] = {}
+# Track running interview manager tasks so we can cancel them when the call ends
+interviews: dict[str, tuple] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -81,15 +84,27 @@ async def on_call_ended(data):
     await _teardown(data["callId"])
 
 
-async def emit_transcript(call_id: str, role: str, text: str):
-    await sio.emit("transcript-line", {"callId": call_id, "role": role, "text": text})
-
-
 async def _teardown(call_id: str):
     session = sessions.pop(call_id, None)
     if session:
         await session.close()
         logger.info("call %s: session torn down", call_id)
+
+    # Cancel any running interview task for this call (if present)
+    interview_entry = interviews.pop(call_id, None)
+    if interview_entry:
+        interview_obj, interview_task = interview_entry
+        try:
+            interview_task.cancel()
+            await interview_task
+        except asyncio.CancelledError:
+            logger.info("call %s: interview task cancelled", call_id)
+        except Exception:
+            logger.exception("call %s: error while cancelling interview task", call_id)
+
+
+async def emit_transcript(call_id: str, role: str, text: str):
+    await sio.emit("transcript-line", {"callId": call_id, "role": role, "text": text})
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +149,6 @@ async def start_session(req: StartSessionRequest):
         user_id=req.userId,
         name=req.name,
         language=req.language,
-        emit_transcript=emit_transcript,
     )
     sessions[req.callId] = session
 
@@ -142,6 +156,11 @@ async def start_session(req: StartSessionRequest):
         "ai-register", {"callId": req.callId, "internalSecret": INTERNAL_SHARED_SECRET}
     )
     await session.start()
+
+    # Launch the Gemini voice interview manager when the call starts.
+    interview = VoiceInterviewManager(on_transcript=lambda role, text: emit_transcript(req.callId, role, text))
+    interview_task = asyncio.create_task(interview.run_interview())
+    interviews[req.callId] = (interview, interview_task)
 
     logger.info("call %s: session started for user %s", req.callId, req.userId)
     return {"ok": True}

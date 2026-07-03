@@ -1,0 +1,28 @@
+CONVERSATION SUMMARY
+==================================================
+
+Q1: What is your main health problem today?
+A: The user reports suffering from a headache.
+
+Q2: Since when are you facing this problem?
+A: The user states they have had the problem since today.
+
+Q3: How severe is your problem right now?
+A: The user described the severity as "lukewarm".
+
+Q4: How has the problem changed over time?
+A: The user gave an unclear response in Hindi, possibly expressing frustration, instead of describing how the problem changed.
+
+Q5: Have you taken any treatment or medicine for this problem?
+A: The user indicated no treatment or medicine has been taken.
+
+==================================================
+TOKEN USAGE REPORT
+==================================================
+
+FINAL SESSION USAGE:
+- Total Input Text:      1767
+- Total Input Audio:     928
+- Total Output Text:     0
+- Total Output Audio:    375
+- Grand Total:           3070
