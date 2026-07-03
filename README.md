@@ -1,0 +1,119 @@
+# Signal — AI-initiated voice calling app
+
+An app where **the AI calls you**, not the other way around. Matches the
+architecture you sketched: a Node.js signaling server for auth/presence/
+scheduling, a Python AI voice server that bridges WebRTC audio to Gemini
+Live, and a PWA client.
+
+```
+pwa-client (browser)  <--Socket.IO-->  signaling-server (Node)  <--Socket.IO-->  ai-voice-server (Python)
+        \_________________________ WebRTC audio (peer-to-peer via SDP/ICE relay) _________________________/
+                                                                                          |
+                                                                                    Gemini Live API
+```
+
+## What's included
+
+```
+signaling-server/     Node.js + Express + Socket.IO + MongoDB
+  server.js              app entrypoint, REST routes, socket bootstrap
+  models/User.js         phone, presence, schedule
+  models/Call.js         call records + transcript
+  routes/auth.js         OTP request/verify -> JWT
+  routes/users.js        update a user's scheduled check-in times
+  services/
+    socketHandlers.js    all Socket.IO events (register, accept-call, offer/answer/ice relay, etc.)
+    scheduler.js          cron job: rings online users at their scheduled times
+    aiServerClient.js     REST client that tells the Python server to start/stop a session
+
+ai-voice-server/       Python + FastAPI + aiortc + Gemini Live
+  main.py                 HTTP endpoints (/session/start, /session/stop) + Socket.IO client
+  webrtc_session.py       aiortc RTCPeerConnection + audio resampling (48k <-> 16k/24k)
+  gemini_bridge.py        Gemini Live session wrapper (audio in/out, transcripts)
+
+pwa-client/            Vanilla JS PWA (swap for React/Next.js later if you like)
+  index.html, style.css, app.js, manifest.json, sw.js
+```
+
+## How a call happens
+
+1. User opens the PWA, verifies their phone via OTP, gets a JWT.
+2. PWA connects a Socket.IO client and emits `register` — the signaling
+   server marks them online and remembers their `socketId`.
+3. A cron job in `scheduler.js` checks every minute for online users whose
+   `scheduledCallTimes` matches "now", or you hit **Ring me now (test)** in
+   the app. Either way it emits `incoming-call` to that user's socket.
+4. User taps **Accept** → signaling server marks the `Call` doc accepted and
+   calls `POST /session/start` on the Python server.
+5. Python server opens a Gemini Live session and joins the same Socket.IO
+   "room" for that call (`ai-register`).
+6. Browser creates an `RTCPeerConnection`, sends an `offer` over the socket;
+   the signaling server relays it to whichever peer is in that call's room;
+   Python answers.
+7. Audio flows peer-to-peer over WebRTC once ICE completes. The browser's
+   mic audio is resampled to 16kHz and streamed into Gemini; Gemini's
+   24kHz reply audio is resampled to 48kHz and sent back over the same
+   `RTCPeerConnection`.
+8. Transcripts stream back over the socket (`transcript-line`) and get
+   saved to the `Call` document, so call history shows up on the home screen.
+
+## Running it locally
+
+### 1. MongoDB
+Use a local `mongod` or a free MongoDB Atlas cluster. Put the connection
+string in `signaling-server/.env`.
+
+### 2. Signaling server (Node 18+)
+```bash
+cd signaling-server
+cp .env.example .env      # fill in MONGO_URI and JWT_SECRET
+npm install
+npm run dev                # or: npm start
+```
+
+### 3. AI voice server (Python 3.11+)
+```bash
+cd ai-voice-server
+cp .env.example .env      # fill in GEMINI_API_KEY, and INTERNAL_SHARED_SECRET
+                            # (INTERNAL_SHARED_SECRET must equal signaling-server's JWT_SECRET)
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### 4. PWA client
+Any static file server works:
+```bash
+cd pwa-client
+python3 -m http.server 5173
+```
+Open `http://localhost:5173`. On first load you'll go through phone + OTP
+(dev mode returns the OTP directly in the response so you don't need a real
+SMS provider yet — see `DEV_OTP_MODE` in `signaling-server/.env`).
+
+Once logged in:
+- Add a check-in time, or just tap **Ring me now (test)**.
+- Accept the incoming call and allow microphone access.
+- Talk — Gemini should greet you and the conversation streams live.
+
+## Wiring in a real SMS provider
+`routes/auth.js` has a single spot marked `TODO` where you'd call Twilio
+Verify, MSG91, or similar instead of the dev-mode fixed OTP.
+
+## Moving the PWA to React/Next.js
+The vanilla client here maps 1:1 onto the events your signaling server
+exposes (`register`, `incoming-call`, `accept-call`, `offer`/`answer`/
+`ice-candidate`, `transcript-line`, `call-ended`), so porting `app.js`'s
+logic into hooks/components later is mostly a copy-paste job — the
+signaling server doesn't need to change.
+
+## Notes / things to harden before production
+- OTPs are stored in plaintext on the `User` doc for simplicity — hash them.
+- `INTERNAL_SHARED_SECRET` reuses `JWT_SECRET` for convenience; use a
+  separate secret in production.
+- Add TURN servers (not just STUN) for users behind restrictive NATs —
+  the client's `ICE_SERVERS` in `app.js` currently only has Google's public
+  STUN server.
+- `aiortc`'s ICE gathering happens synchronously inside `setLocalDescription`
+  by default in this scaffold — fine for a prototype, but for production-grade
+  connect times you'd want trickle ICE tuned on both sides.

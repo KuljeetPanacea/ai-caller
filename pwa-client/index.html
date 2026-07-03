@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Signal - AI Voice Calls</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0B0E14" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-frame">
+
+    <!-- ===================== AUTH ===================== -->
+    <section id="screen-auth" class="screen auth-screen active">
+      <div class="auth-mark">S</div>
+      <p class="eyebrow">Signal</p>
+      <h1>Your AI keeps in touch</h1>
+      <p class="subtitle">Enter your phone number. We'll text a code, then your assistant can start calling you.</p>
+
+      <div id="step-phone">
+        <div class="field">
+          <label for="phone-input">Phone number</label>
+          <input id="phone-input" type="tel" placeholder="+91 98765 43210" autocomplete="tel" />
+        </div>
+        <p class="error-text" id="phone-error"></p>
+        <button class="btn btn-primary btn-block" id="btn-request-otp">Send code</button>
+      </div>
+
+      <div id="step-otp" style="display:none;">
+        <div class="field">
+          <label for="otp-input">Verification code</label>
+          <input id="otp-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+        </div>
+        <div class="field">
+          <label for="name-input">Your name</label>
+          <input id="name-input" type="text" placeholder="Kuljeet" />
+        </div>
+        <p class="error-text" id="otp-error"></p>
+        <button class="btn btn-primary btn-block" id="btn-verify-otp">Verify and continue</button>
+        <p class="hint" id="dev-otp-hint"></p>
+      </div>
+    </section>
+
+    <!-- ===================== HOME ===================== -->
+    <section id="screen-home" class="screen home-screen">
+      <div class="home-header">
+        <div>
+          <p class="eyebrow">Signal</p>
+          <h1 id="home-greeting">Hi there</h1>
+        </div>
+        <div class="presence-pill" id="presence-pill">
+          <span class="presence-dot"></span>
+          <span id="presence-text">Connecting</span>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <p class="label">Check-in times</p>
+        <p class="subtitle" style="margin-bottom:0;">Your assistant will call automatically at these times, whenever you're online.</p>
+        <div class="schedule-list" id="schedule-list"></div>
+        <div class="add-schedule-row">
+          <input type="time" id="schedule-time-input" />
+          <button class="btn btn-ghost" id="btn-add-schedule">Add</button>
+        </div>
+        <div class="test-call-row">
+          <button class="btn btn-ghost btn-block" id="btn-test-call">Ring me now (test)</button>
+        </div>
+      </div>
+
+      <div class="status-card history-preview">
+        <p class="label">Recent calls</p>
+        <div id="history-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================== INCOMING CALL ===================== -->
+    <section id="screen-incoming" class="screen call-screen">
+      <div class="caller-block">
+        <div class="pulse-wrap">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="avatar">AI</div>
+        </div>
+        <p class="caller-name" id="incoming-caller-name">AI Assistant</p>
+        <p class="call-status-text">Incoming call…</p>
+      </div>
+
+      <div class="call-controls incoming">
+        <div>
+          <button class="round-btn decline" id="btn-decline" aria-label="Decline">✕</button>
+          <p class="icon-label">Decline</p>
+        </div>
+        <div>
+          <button class="round-btn accept" id="btn-accept" aria-label="Accept">✓</button>
+          <p class="icon-label">Accept</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ACTIVE CALL ===================== -->
+    <section id="screen-active" class="screen call-screen">
+      <div class="caller-block">
+        <div class="pulse-wrap">
+          <div class="avatar">AI</div>
+        </div>
+        <p class="caller-name">AI Assistant</p>
+        <p class="call-status-text" id="active-status-text">Connecting…</p>
+        <p class="call-timer" id="call-timer">00:00</p>
+      </div>
+
+      <div class="transcript-box" id="transcript-box"></div>
+
+      <div class="call-controls">
+        <div>
+          <button class="round-btn mute" id="btn-mute" aria-label="Mute">🎤</button>
+          <p class="icon-label">Mute</p>
+        </div>
+        <div>
+          <button class="round-btn end" id="btn-end" aria-label="End call">✕</button>
+          <p class="icon-label">End</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+    <audio id="remote-audio" autoplay playsinline></audio>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
