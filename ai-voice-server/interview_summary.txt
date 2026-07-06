@@ -1,9 +1,37 @@
 CONVERSATION SUMMARY
 ==================================================
-No answers were recorded during this session.
+
+Q1: What is your main health problem today?
+A: The user has a fever today.
+
+Q2: Since when are you facing this problem?
+A: The user has been facing the fever since this morning.
+
+Q3: How severe is your problem right now?
+A: The user rates the severity of their fever as 8 out of 10.
+
+Q4: How has the problem changed over time?
+A: The user's fever has become worse over time.
+
+Q5: Have you taken any treatment or medicine for this problem?
+A: The user has not taken any treatment or medicine for the fever yet.
+
+Q6: Do you experience heavy bleeding during periods?
+A: The user does not experience heavy bleeding during periods.
+
+Q7: Do you feel shortness of breath while walking or climbing stairs?
+A: The user does not feel shortness of breath.
+
+Q8: Do you have any existing medical condition?
+A: The user does not have any existing medical conditions.
 
 ==================================================
 TOKEN USAGE REPORT
 ==================================================
 
-No token usage metadata was received from the API.
+FINAL SESSION USAGE:
+- Total Input Text:      2004
+- Total Input Audio:     1486
+- Total Output Text:     0
+- Total Output Audio:    602
+- Grand Total:           4092

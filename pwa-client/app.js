@@ -96,6 +96,12 @@ $("btn-request-otp").addEventListener("click", async () => {
 // App entry (after auth) — connect socket, load home screen data
 // ---------------------------------------------------------------------------
 async function enterApp() {
+  if (state.hasCompletedCall) {
+    $("home-greeting").textContent = state.userName ? `Hi ${state.userName}` : "Hi there";
+    showScreen("screen-home");
+    connectSocket();
+    return;
+  }
   $("home-greeting").textContent = state.userName ? `Hi ${state.userName}` : "Hi there";
   $("waiting-greeting").textContent = state.userName ? `Hi ${state.userName}` : "Hi there";
   showScreen("screen-waiting");
@@ -139,7 +145,7 @@ async function triggerAutoCall() {
 }
 
 function connectSocket() {
-  state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] ,path: "/ai-caller-backend/socket.io" } );
+  state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] });
 
   state.socket.on("connect", () => {
     state.socket.emit("register", { userId: state.userId, token: state.token }, (ack) => {
@@ -318,6 +324,7 @@ function endCallLocally() {
   state.currentCallId = null;
   state.muted = false;
   state.hasCompletedCall = true;
+  localStorage.setItem("hasCompletedCall", "true");
   $("btn-mute").classList.remove("active");
   showScreen("screen-thank-you");
   loadHistory();
@@ -379,6 +386,7 @@ function renderHistory(calls) {
 // Boot
 // ---------------------------------------------------------------------------
 (function boot() {
+  state.hasCompletedCall = localStorage.getItem("hasCompletedCall") === "true";
   if (state.token && state.userId) {
     enterApp();
   } else {

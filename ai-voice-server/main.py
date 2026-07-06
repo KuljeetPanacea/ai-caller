@@ -143,7 +143,7 @@ async def _connect_with_retry():
             await asyncio.sleep(3)
 
 
-@app.post("/ai-caller-py/session/start")
+@app.post("/session/start")
 async def start_session(req: StartSessionRequest):
     if req.callId in sessions:
         return {"ok": True, "already": True}
@@ -173,12 +173,12 @@ async def start_session(req: StartSessionRequest):
     return {"ok": True}
 
 
-@app.post("/ai-caller-py/session/stop")
+@app.post("/session/stop")
 async def stop_session(req: StopSessionRequest):
     await _teardown(req.callId)
     return {"ok": True}
 
 
-@app.get("/ai-caller-py/health")
+@app.get("/health")
 async def health():
     return {"ok": True, "activeSessions": list(sessions.keys())}

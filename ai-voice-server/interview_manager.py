@@ -43,7 +43,8 @@ class VoiceInterviewManager:
         self.current_question_idx = 0
         # self.token_log = []
         self.full_transcript = []
-        self.overarching_summary = None
+        self.overarching_summary = ""
+        self.summary_text = ""
         # Tracks in-progress transcription before final emission
         self._pending_input_text = ""
         self._pending_model_turn_text = ""

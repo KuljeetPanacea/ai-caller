@@ -4,6 +4,7 @@ const CallSchema = new mongoose.Schema(
   {
     callId: { type: String, required: true, unique: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    phone: { type: String, default: "" },
 
     direction: { type: String, enum: ["ai-initiated", "user-initiated"], default: "ai-initiated" },
     status: {
@@ -23,6 +24,7 @@ const CallSchema = new mongoose.Schema(
         at: { type: Date, default: Date.now },
       },
     ],
+    summary: { type: String, default: "" },
   },
   { timestamps: true }
 );

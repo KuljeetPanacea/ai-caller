@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Signal - AI Voice Calls</title>
-  <link rel="manifest" href="https://omen.radpretation.ai/ai-caller/manifest.json" />
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0B0E14" />
-  <link rel="stylesheet" href="https://omen.radpretation.ai/ai-caller/style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app-frame">
@@ -26,6 +26,22 @@
       <button class="btn btn-primary btn-block" id="btn-request-otp">Continue</button>
     </section>
 
+    <!-- ===================== WAITING FOR CALL ===================== -->
+    <section id="screen-waiting" class="screen waiting-screen">
+      <div class="waiting-content">
+        <p class="eyebrow">Signal</p>
+        <h1 id="waiting-greeting">Hi there</h1>
+        <p class="subtitle">Your AI assistant is preparing to call you...</p>
+        
+        <div class="waiting-timer">
+          <div class="countdown" id="countdown-display">60</div>
+          <p class="countdown-label">seconds</p>
+        </div>
+
+        <p class="waiting-info">Please keep your microphone enabled for the call.</p>
+      </div>
+    </section>
+
     <!-- ===================== HOME ===================== -->
     <section id="screen-home" class="screen home-screen">
       <div class="home-header">
@@ -36,19 +52,6 @@
         <div class="presence-pill" id="presence-pill">
           <span class="presence-dot"></span>
           <span id="presence-text">Connecting</span>
-        </div>
-      </div>
-
-      <div class="status-card">
-        <p class="label">Check-in times</p>
-        <p class="subtitle" style="margin-bottom:0;">Your assistant will call automatically at these times, whenever you're online.</p>
-        <div class="schedule-list" id="schedule-list"></div>
-        <div class="add-schedule-row">
-          <input type="time" id="schedule-time-input" />
-          <button class="btn btn-ghost" id="btn-add-schedule">Add</button>
-        </div>
-        <div class="test-call-row">
-          <button class="btn btn-ghost btn-block" id="btn-test-call">Ring me now (test)</button>
         </div>
       </div>
 
@@ -108,15 +111,24 @@
       </div>
     </section>
 
+    <!-- ===================== THANK YOU ===================== -->
+    <section id="screen-thank-you" class="screen thank-you-screen">
+      <div class="thank-you-content">
+        <div class="thank-you-icon">🙏</div>
+        <h1>Thank you!</h1>
+        <p class="subtitle">Your call has ended. Have a great day!</p>
+      </div>
+    </section>
+
     <div class="toast" id="toast"></div>
     <audio id="remote-audio" autoplay playsinline></audio>
     <!-- Ringtone audio (place ring.mp3 in this folder to use a custom tone) -->
-    <audio id="ring-audio" src="https://omen.radpretation.ai/ai-caller/ring.mp3" loop></audio>
+    <audio id="ring-audio" src="ring.mp3" loop></audio>
     <!-- Install button for PWA (revealed by script) -->
     <button id="btn-install" style="display:none;position:fixed;top:12px;right:12px;z-index:1000;">Install</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="https://omen.radpretation.ai/ai-caller/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

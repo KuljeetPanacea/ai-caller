@@ -189,7 +189,7 @@ async function ringUser(io, userId, { reason } = {}) {
   if (!user || !user.online) return { ok: false, reason: "user_offline" };
 
   const callId = randomUUID();
-  await Call.create({ callId, userId, direction: "ai-initiated", status: "ringing" });
+  await Call.create({ callId, userId, phone: user.phone, direction: "ai-initiated", status: "ringing" });
 
   io.to(userRoom(userId)).emit("incoming-call", {
     callId,
