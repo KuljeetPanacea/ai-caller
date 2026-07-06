@@ -43,9 +43,6 @@ apiRouter.get("/calls/:userId", async (req, res) => {
   res.json({ calls });
 });
 
-// Mount all routes under /ai-caller prefix
-app.use("/ai-caller", express.static("../pwa-client"));
-app.use("/ai-caller", apiRouter);
 
 const server = http.createServer(app);
 const io = new Server(server, {

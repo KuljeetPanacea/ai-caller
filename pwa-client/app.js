@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const SIGNALING_SERVER_URL = window.SIGNALING_SERVER_URL || "http://localhost:4000";
+const SIGNALING_SERVER_URL = window.SIGNALING_SERVER_URL || "https://omen.radpretation.ai/ai-caller-backend";
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   // Free public TURN (openrelay.metered.ca) — swap for your own TURN
@@ -52,7 +52,7 @@ function toast(msg) {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('http://localhost:4000/ai-caller/sw.js').then(() => {
+  navigator.serviceWorker.register('https://omen.radpretation.ai/ai-caller/sw.js').then(() => {
     console.log('Service worker registered');
   }).catch((err) => {
     console.warn('Service worker registration failed', err);
