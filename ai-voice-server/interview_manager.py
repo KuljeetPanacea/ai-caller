@@ -32,11 +32,12 @@ OUTPUT_RATE = 24000  # Gemini Live outputs 24kHz natively
 CHUNK_SIZE = 1024
 
 class VoiceInterviewManager:
-    def __init__(self, on_transcript=None):
-        self.client = genai.Client(api_key = 'AQ.Ab8RN6Jwd5UZDrU613OtC-bvNNpRboyktT2hmwAg')
+    def __init__(self, on_transcript=None, on_complete=None):
+        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         self.model = "gemini-3.1-flash-live-preview"
         self.p = pyaudio.PyAudio()
         self.on_transcript = on_transcript
+        self.on_complete = on_complete
         
         # State tracking
         self.current_question_idx = 0
@@ -46,6 +47,9 @@ class VoiceInterviewManager:
         # Tracks in-progress transcription before final emission
         self._pending_input_text = ""
         self._pending_model_turn_text = ""
+        # End-state tracking
+        self.all_questions_answered = False
+        self.awaiting_final_goodbye = False
         # Event to control microphone streaming
         self.audio_stream_event = asyncio.Event()
         self.audio_stream_event.set()  # initially allow streaming
@@ -57,6 +61,16 @@ class VoiceInterviewManager:
                 await self.on_transcript(role, text)
             except Exception:
                 print(f"⚠️ Failed to emit transcript line for {role}")
+
+    async def _emit_complete(self):
+        if self.on_complete:
+            try:
+                result = self.on_complete()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception:
+                print("⚠️ Failed to emit completion event")
+
     # submit_answer function definition. this will be called  immediately after the user answers a question
     def get_tools(self):
         """Define a tool to intercept and log answers sequentially."""
@@ -239,13 +253,12 @@ class VoiceInterviewManager:
                         if part.inline_data:
                             # Play Gemini's vocal response out of your computer speakers
                             output_stream.write(part.inline_data.data)
+                        if getattr(part, "text", None):
+                            self._pending_model_turn_text += part.text or ""
+                    if self.all_questions_answered:
+                        self.awaiting_final_goodbye = True
 
                 if response.server_content:
-                    if response.server_content.model_turn:
-                        for part in response.server_content.model_turn.parts:
-                            if getattr(part, "text", None):
-                                self._pending_model_turn_text += part.text or ""
-
                     in_t = getattr(response.server_content, "input_transcription", None)
                     if in_t and getattr(in_t, "text", None):
                         self._pending_input_text = in_t.text
@@ -273,6 +286,10 @@ class VoiceInterviewManager:
                         self.audio_stream_event.set()
                         self.model_was_speaking = False
 
+                    if self.all_questions_answered and self.awaiting_final_goodbye:
+                        interview_done = True
+                        self.awaiting_final_goodbye = False
+
                 # Catch the tool trigger execution
                 if response.tool_call:
                     for fc in response.tool_call.function_calls:
@@ -289,29 +306,22 @@ class VoiceInterviewManager:
 
                             # Advance index
                             self.current_question_idx += 1
-                            
-                            if self.current_question_idx < len(PREDEFINED_QUESTIONS):
-                                next_q = PREDEFINED_QUESTIONS[self.current_question_idx]
-                                # Provide function output back to the model to safely trigger the next step
-                                # Send an empty response to confirm answer recording; model will ask next question based on system instruction
-                                await session.send_tool_response(
-                                    function_responses=[
-                                        types.FunctionResponse(
-                                            name=fc.name,
-                                            id=fc.id,
-                                            response={"result": "Answer recorded"}
-                                        )
-                                    ]
-                                )
-                                # Small pause to give the model time to generate the next question before we resume sending audio
-                                await asyncio.sleep(0.5)
-                            else:
-                                # Completed all questions
-                                # print("token_log:- ",self.token_log)
-                                print("\nAll questions completed. Wrapping up...")
-                                mic_task.cancel()
-                                interview_done = True
-                                break
+                            if self.current_question_idx >= len(PREDEFINED_QUESTIONS):
+                                self.all_questions_answered = True
+
+                            # Provide function output back to the model to safely trigger the next step
+                            # Send an empty response to confirm answer recording; model will ask next question or close the interview
+                            await session.send_tool_response(
+                                function_responses=[
+                                    types.FunctionResponse(
+                                        name=fc.name,
+                                        id=fc.id,
+                                        response={"result": "Answer recorded"}
+                                    )
+                                ]
+                            )
+                            # Small pause to give the model time to generate the next question or final goodbye before we resume sending audio
+                            await asyncio.sleep(0.5)
 
                     if interview_done:
                         break
@@ -332,6 +342,9 @@ class VoiceInterviewManager:
             output_stream.stop_stream()
             output_stream.close()
             self.p.terminate()
+
+            # Notify the parent that the interview completed naturally
+            await self._emit_complete()
 
         except Exception as e:
             print(f"\n❌ ERROR: {type(e).__name__}: {e}")

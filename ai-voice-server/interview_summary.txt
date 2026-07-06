@@ -2,27 +2,36 @@ CONVERSATION SUMMARY
 ==================================================
 
 Q1: What is your main health problem today?
-A: The user reports suffering from a headache.
+A: The user is having trouble breathing properly.
 
 Q2: Since when are you facing this problem?
-A: The user states they have had the problem since today.
+A: The breathing problem started 5 minutes ago.
 
 Q3: How severe is your problem right now?
-A: The user described the severity as "lukewarm".
+A: The user rates the severity as 9 on a scale of 1 to 10.
 
 Q4: How has the problem changed over time?
-A: The user gave an unclear response in Hindi, possibly expressing frustration, instead of describing how the problem changed.
+A: The user states that the problem has gotten worse.
 
 Q5: Have you taken any treatment or medicine for this problem?
-A: The user indicated no treatment or medicine has been taken.
+A: The user has not taken any treatment or medicine for this problem.
+
+Q6: Do you experience heavy bleeding during periods?
+A: The user does not experience heavy bleeding during periods.
+
+Q7: Do you feel shortness of breath while walking or climbing stairs?
+A: The user experiences shortness of breath very much while walking or climbing stairs.
+
+Q8: Do you have any existing medical condition?
+A: The user does not have any existing medical conditions.
 
 ==================================================
 TOKEN USAGE REPORT
 ==================================================
 
 FINAL SESSION USAGE:
-- Total Input Text:      1767
-- Total Input Audio:     928
+- Total Input Text:      2032
+- Total Input Audio:     2008
 - Total Output Text:     0
-- Total Output Audio:    375
-- Grand Total:           3070
+- Total Output Audio:    624
+- Grand Total:           4664

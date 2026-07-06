@@ -111,6 +111,21 @@ function registerSocketHandlers(io) {
       io.to(callRoom(callId)).emit("call-ended", { callId, reason: "ended" });
     });
 
+    socket.on("ai-call-ended", async ({ callId, reason }) => {
+      const call = await Call.findOne({ callId });
+      if (call) {
+        const endedAt = new Date();
+        const durationSeconds = call.startedAt
+          ? Math.round((endedAt - call.startedAt) / 1000)
+          : 0;
+        call.status = "completed";
+        call.endedAt = endedAt;
+        call.durationSeconds = durationSeconds;
+        await call.save();
+      }
+      io.to(callRoom(callId)).emit("call-ended", { callId, reason: reason || "completed" });
+    });
+
     // ---- WebRTC signaling relay (pure pass-through) ----
     socket.on("offer", ({ callId, sdp }) => {
       socket.to(callRoom(callId)).emit("offer", { callId, sdp });
@@ -145,6 +160,21 @@ function registerSocketHandlers(io) {
           lastSeen: new Date(),
         });
         console.log(`[presence] user ${socket.data.userId} offline`);
+
+        // If the user refreshes during an active call, stop the AI session.
+        const activeCall = await Call.findOne({ userId: socket.data.userId, status: "accepted" }).sort({ startedAt: -1 });
+        if (activeCall) {
+          const endedAt = new Date();
+          const durationSeconds = activeCall.startedAt
+            ? Math.round((endedAt - activeCall.startedAt) / 1000)
+            : 0;
+          activeCall.status = "completed";
+          activeCall.endedAt = endedAt;
+          activeCall.durationSeconds = durationSeconds;
+          await activeCall.save();
+          await stopAiSession({ callId: activeCall.callId, reason: "disconnect" }).catch(() => {});
+          io.to(callRoom(activeCall.callId)).emit("call-ended", { callId: activeCall.callId, reason: "disconnect" });
+        }
       }
       if (socket.data.role === "ai" && socket.data.callId) {
         console.log(`[ai] left room for call ${socket.data.callId}`);

@@ -107,6 +107,10 @@ async def emit_transcript(call_id: str, role: str, text: str):
     await sio.emit("transcript-line", {"callId": call_id, "role": role, "text": text})
 
 
+async def emit_call_ended(call_id: str):
+    await sio.emit("ai-call-ended", {"callId": call_id, "reason": "completed"})
+
+
 # ---------------------------------------------------------------------------
 # HTTP API — called by the Node signaling server
 # ---------------------------------------------------------------------------
@@ -158,7 +162,10 @@ async def start_session(req: StartSessionRequest):
     await session.start()
 
     # Launch the Gemini voice interview manager when the call starts.
-    interview = VoiceInterviewManager(on_transcript=lambda role, text: emit_transcript(req.callId, role, text))
+    interview = VoiceInterviewManager(
+        on_transcript=lambda role, text: emit_transcript(req.callId, role, text),
+        on_complete=lambda: emit_call_ended(req.callId),
+    )
     interview_task = asyncio.create_task(interview.run_interview())
     interviews[req.callId] = (interview, interview_task)
 

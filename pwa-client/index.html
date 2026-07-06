@@ -16,30 +16,14 @@
       <div class="auth-mark">S</div>
       <p class="eyebrow">Signal</p>
       <h1>Your AI keeps in touch</h1>
-      <p class="subtitle">Enter your phone number. We'll text a code, then your assistant can start calling you.</p>
+      <p class="subtitle">Enter your registered phone number to continue. If your number is not found, the app will tell you you are not registered.</p>
 
-      <div id="step-phone">
-        <div class="field">
-          <label for="phone-input">Phone number</label>
-          <input id="phone-input" type="tel" placeholder="+91 98765 43210" autocomplete="tel" />
-        </div>
-        <p class="error-text" id="phone-error"></p>
-        <button class="btn btn-primary btn-block" id="btn-request-otp">Send code</button>
+      <div class="field">
+        <label for="phone-input">Phone number</label>
+        <input id="phone-input" type="tel" placeholder="9499346014" autocomplete="tel" />
       </div>
-
-      <div id="step-otp" style="display:none;">
-        <div class="field">
-          <label for="otp-input">Verification code</label>
-          <input id="otp-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
-        </div>
-        <div class="field">
-          <label for="name-input">Your name</label>
-          <input id="name-input" type="text" placeholder="Kuljeet" />
-        </div>
-        <p class="error-text" id="otp-error"></p>
-        <button class="btn btn-primary btn-block" id="btn-verify-otp">Verify and continue</button>
-        <p class="hint" id="dev-otp-hint"></p>
-      </div>
+      <p class="error-text" id="phone-error"></p>
+      <button class="btn btn-primary btn-block" id="btn-request-otp">Continue</button>
     </section>
 
     <!-- ===================== HOME ===================== -->
@@ -110,7 +94,7 @@
         <p class="call-timer" id="call-timer">00:00</p>
       </div>
 
-      <div class="transcript-box" id="transcript-box"></div>
+      <!-- transcript removed from UI by user request -->
 
       <div class="call-controls">
         <div>
@@ -126,6 +110,10 @@
 
     <div class="toast" id="toast"></div>
     <audio id="remote-audio" autoplay playsinline></audio>
+    <!-- Ringtone audio (place ring.mp3 in this folder to use a custom tone) -->
+    <audio id="ring-audio" src="ring.mp3" loop></audio>
+    <!-- Install button for PWA (revealed by script) -->
+    <button id="btn-install" style="display:none;position:fixed;top:12px;right:12px;z-index:1000;">Install</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>

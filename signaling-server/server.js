@@ -1,4 +1,5 @@
 require("dotenv").config();
+const dns = require("dns");
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -49,8 +50,18 @@ registerSocketHandlers(io);
 const PORT = process.env.PORT || 4000;
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log("[mongo] connected");
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri) {
+    throw new Error("MONGO_URI is required in environment");
+  }
+
+  if (mongoUri.startsWith("mongodb+srv://")) {
+    dns.setServers(["8.8.8.8", "8.8.4.4"]);
+    console.log("[dns] using Google DNS for SRV resolution");
+  }
+
+  await mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB_NAME });
+  console.log("[mongo] connected", { uri: mongoUri, db: process.env.MONGO_DB_NAME });
 
   startScheduler(io);
 

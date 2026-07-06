@@ -51,8 +51,12 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 2600);
 }
 
-if (window.serviceWorker || navigator.serviceWorker) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(() => {
+    console.log('Service worker registered');
+  }).catch((err) => {
+    console.warn('Service worker registration failed', err);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -64,36 +68,13 @@ $("btn-request-otp").addEventListener("click", async () => {
   if (!phone) return ($("phone-error").textContent = "Enter a phone number.");
 
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/auth/request-otp`, {
+    const res = await fetch(`${SIGNALING_SERVER_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not send code");
-
-    $("step-phone").style.display = "none";
-    $("step-otp").style.display = "block";
-    if (data.devOtp) $("dev-otp-hint").textContent = `Dev mode: your code is ${data.devOtp}`;
-  } catch (err) {
-    $("phone-error").textContent = err.message;
-  }
-});
-
-$("btn-verify-otp").addEventListener("click", async () => {
-  const phone = $("phone-input").value.trim();
-  const code = $("otp-input").value.trim();
-  const name = $("name-input").value.trim();
-  $("otp-error").textContent = "";
-
-  try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/auth/verify-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, code, name }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Invalid code");
+    if (!res.ok) throw new Error(data.message || data.error || "Phone number not registered.");
 
     state.token = data.token;
     state.userId = data.user.id;
@@ -104,7 +85,7 @@ $("btn-verify-otp").addEventListener("click", async () => {
 
     enterApp();
   } catch (err) {
-    $("otp-error").textContent = err.message;
+    $("phone-error").textContent = err.message;
   }
 });
 
@@ -138,6 +119,13 @@ function connectSocket() {
     state.currentCallId = callId;
     $("incoming-caller-name").textContent = caller || "AI Assistant";
     showScreen("screen-incoming");
+    // play ringtone (will try local ring.mp3 first)
+    const ring = $("ring-audio");
+    if (ring) {
+      ring.play().catch(() => {
+        // autoplay might be blocked; ignore
+      });
+    }
   });
 
   state.socket.on("call-ready", async ({ callId }) => {
@@ -159,17 +147,26 @@ function connectSocket() {
     }
   });
 
-  state.socket.on("transcript-line", ({ callId, role, text }) => {
-    if (callId !== state.currentCallId) return;
-    appendTranscript(role, text);
-  });
+  // transcript-line events are ignored (transcript UI removed)
 
   state.socket.on("call-ended", ({ callId }) => {
     if (callId !== state.currentCallId) return;
     endCallLocally();
     toast("Call ended");
+    // stop ringtone on call end
+    const ring = $("ring-audio");
+    if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
   });
 }
+
+window.addEventListener("beforeunload", () => {
+  if (!state.currentCallId) return;
+  try {
+    state.socket.emit("end-call", { callId: state.currentCallId });
+  } catch (err) {
+    // best-effort cleanup on refresh
+  }
+});
 
 function setPresence(online) {
   const pill = $("presence-pill");
@@ -180,19 +177,24 @@ function setPresence(online) {
 // ---------------------------------------------------------------------------
 // Call handling
 // ---------------------------------------------------------------------------
-$("btn-accept").addEventListener("click", () => {
-  state.socket.emit("accept-call", { callId: state.currentCallId }, (ack) => {
-    if (!ack?.ok) return toast("Could not accept call: " + (ack?.error || ""));
-    showScreen("screen-active");
-    $("active-status-text").textContent = "Connecting…";
-    $("transcript-box").innerHTML = "";
-  });
+  $("btn-accept").addEventListener("click", () => {
+    state.socket.emit("accept-call", { callId: state.currentCallId }, (ack) => {
+      if (!ack?.ok) return toast("Could not accept call: " + (ack?.error || ""));
+      showScreen("screen-active");
+      $("active-status-text").textContent = "Connecting…";
+      // stop ringtone when call accepted
+      const ring = $("ring-audio");
+      if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
+    });
 });
 
 $("btn-decline").addEventListener("click", () => {
   state.socket.emit("reject-call", { callId: state.currentCallId });
   showScreen("screen-home");
   state.currentCallId = null;
+  // stop ringtone on decline
+  const ring = $("ring-audio");
+  if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
 });
 
 $("btn-end").addEventListener("click", () => {
@@ -244,14 +246,7 @@ async function startWebRtc(callId) {
   state.socket.emit("offer", { callId, sdp: offer });
 }
 
-function appendTranscript(role, text) {
-  const box = $("transcript-box");
-  const line = document.createElement("div");
-  line.className = `transcript-line ${role}`;
-  line.innerHTML = `<span class="who">${role === "ai" ? "AI" : "You"}</span> ${escapeHtml(text)}`;
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
-}
+// transcript UI removed — appendTranscript intentionally omitted
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -431,3 +426,21 @@ function renderHistory(calls) {
     showScreen("screen-auth");
   }
 })();
+
+// PWA install prompt handling
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = $('btn-install');
+  if (btn) {
+    btn.style.display = 'block';
+    btn.addEventListener('click', async () => {
+      btn.style.display = 'none';
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+  }
+});
