@@ -68,7 +68,7 @@ $("btn-request-otp").addEventListener("click", async () => {
   if (!phone) return ($("phone-error").textContent = "Enter a phone number.");
 
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/auth/login`, {
+    const res = await fetch(`${SIGNALING_SERVER_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
