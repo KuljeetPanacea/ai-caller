@@ -26,8 +26,9 @@ app.post("/calls/trigger", async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId is required" });
-    const result = await ringUser(io, userId, { reason: "manual-trigger" });
-    res.json(result);
+  const result = await ringUser(io, userId, { reason: "manual-trigger" });
+  console.log("[call] /calls/trigger result", result);
+  res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

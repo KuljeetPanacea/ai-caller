@@ -62,40 +62,51 @@ function registerSocketHandlers(io) {
 
     socket.on("accept-call", async ({ callId }, ack) => {
       try {
+        console.log("[call] accept-call event received", { callId, socketRole: socket.data.role });
         const call = await Call.findOneAndUpdate(
           { callId },
           { status: "accepted", startedAt: new Date() },
           { new: true }
         );
-        if (!call) return ack?.({ ok: false, error: "call_not_found" });
+        if (!call) {
+          console.warn("[call] accept-call call_not_found", { callId });
+          return ack?.({ ok: false, error: "call_not_found" });
+        }
+        console.log("[call] accept-call DB updated to accepted", { callId });
 
         socket.join(callRoom(callId));
 
         // Tell the Python backend server to spin up a WebRTC peer for this call.
         const user = await User.findById(call.userId);
+        console.log("[call] accept-call calling startAiSession", { callId, userId: String(call.userId) });
         await startAiSession({
           callId,
           userId: String(call.userId),
           name: user?.name || "there",
           language: user?.language || "en",
         });
+        console.log("[call] accept-call startAiSession done", { callId });
 
         // Both sides now know they should start WebRTC negotiation.
         io.to(callRoom(callId)).emit("call-ready", { callId });
+        console.log("[call] accept-call emitted call-ready", { callId, room: callRoom(callId) });
         ack?.({ ok: true });
       } catch (err) {
-        console.error("[accept-call] error:", err.message);
+        console.error("[accept-call] error:", err);
         ack?.({ ok: false, error: err.message });
       }
     });
 
     socket.on("reject-call", async ({ callId }) => {
-      await Call.findOneAndUpdate({ callId }, { status: "rejected", endedAt: new Date() });
-      await stopAiSession({ callId, reason: "rejected" }).catch(() => {});
+      const result = await Call.findOneAndUpdate({ callId }, { status: "rejected", endedAt: new Date() });
+      console.log("[call] reject-call DB updated", { callId, found: !!result });
+      await stopAiSession({ callId, reason: "rejected" }).catch((err) => console.error("[call] reject-call stopAiSession error", err));
       io.to(callRoom(callId)).emit("call-ended", { callId, reason: "rejected" });
+      console.log("[call] reject-call emitted call-ended", { callId });
     });
 
     socket.on("end-call", async ({ callId }) => {
+      console.log("[call] end-call request", { callId });
       const call = await Call.findOne({ callId });
       if (call) {
         const endedAt = new Date();
@@ -106,9 +117,11 @@ function registerSocketHandlers(io) {
         call.endedAt = endedAt;
         call.durationSeconds = durationSeconds;
         await call.save();
+        console.log("[call] end-call DB updated", { callId, durationSeconds });
       }
-      await stopAiSession({ callId, reason: "ended" }).catch(() => {});
+      await stopAiSession({ callId, reason: "ended" }).catch((err) => console.error("[call] end-call stopAiSession error", err));
       io.to(callRoom(callId)).emit("call-ended", { callId, reason: "ended" });
+      console.log("[call] end-call emitted call-ended", { callId });
     });
 
     socket.on("ai-call-ended", async ({ callId, reason }) => {
@@ -153,17 +166,18 @@ function registerSocketHandlers(io) {
     });
 
     socket.on("disconnect", async () => {
+      console.log("[socket] disconnect event", { role: socket.data.role, userId: socket.data.userId, callId: socket.data.callId });
       if (socket.data.role === "human" && socket.data.userId) {
         await User.findByIdAndUpdate(socket.data.userId, {
           online: false,
           socketId: null,
           lastSeen: new Date(),
         });
-        console.log(`[presence] user ${socket.data.userId} offline`);
+        console.log("[presence] user disconnected", { userId: socket.data.userId });
 
-        // If the user refreshes during an active call, stop the AI session.
         const activeCall = await Call.findOne({ userId: socket.data.userId, status: "accepted" }).sort({ startedAt: -1 });
         if (activeCall) {
+          console.log("[call] disconnect teardown active call", { callId: activeCall.callId, userId: socket.data.userId });
           const endedAt = new Date();
           const durationSeconds = activeCall.startedAt
             ? Math.round((endedAt - activeCall.startedAt) / 1000)
@@ -172,12 +186,13 @@ function registerSocketHandlers(io) {
           activeCall.endedAt = endedAt;
           activeCall.durationSeconds = durationSeconds;
           await activeCall.save();
-          await stopAiSession({ callId: activeCall.callId, reason: "disconnect" }).catch(() => {});
+          await stopAiSession({ callId: activeCall.callId, reason: "disconnect" }).catch((err) => console.error("[call] disconnect stopAiSession error", err));
           io.to(callRoom(activeCall.callId)).emit("call-ended", { callId: activeCall.callId, reason: "disconnect" });
+          console.log("[call] disconnect emitted call-ended", { callId: activeCall.callId, reason: "disconnect" });
         }
       }
       if (socket.data.role === "ai" && socket.data.callId) {
-        console.log(`[ai] left room for call ${socket.data.callId}`);
+        console.log(`[ai] socket disconnected for call ${socket.data.callId}`);
       }
     });
   });
@@ -186,16 +201,23 @@ function registerSocketHandlers(io) {
 // Used by the scheduler to push a fresh incoming-call ring to a specific user.
 async function ringUser(io, userId, { reason } = {}) {
   const user = await User.findById(userId);
-  if (!user || !user.online) return { ok: false, reason: "user_offline" };
+  console.log("[call] ringUser found user", {user});
+  console.log("[call] ringUser input", { userId, online: user?.online, reason });
+  if (!user || !user.online) {
+    console.log("[call] ringUser aborted user_offline", { userId });
+    return { ok: false, reason: "user_offline" };
+  }
 
   const callId = randomUUID();
-  await Call.create({ callId, userId, phone: user.phone, direction: "ai-initiated", status: "ringing" });
+  const call = await Call.create({ callId, userId, phone: user.phone, direction: "ai-initiated", status: "ringing" });
+  console.log("[call] ringUser created call DB record", { callId, userId, direction: call.direction });
 
   io.to(userRoom(userId)).emit("incoming-call", {
     callId,
     caller: "AI Assistant",
     reason: reason || "scheduled-checkin",
   });
+  console.log("[call] ringUser emitted incoming-call", { callId, userId, room: userRoom(userId) });
 
   return { ok: true, callId };
 }

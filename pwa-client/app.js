@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const SIGNALING_SERVER_URL = window.SIGNALING_SERVER_URL || "http://localhost:4000";
+const SIGNALING_SERVER_URL = "http://localhost:4000";
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   // Free public TURN (openrelay.metered.ca) — swap for your own TURN
@@ -65,6 +65,7 @@ if ('serviceWorker' in navigator) {
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
+
 $("btn-request-otp").addEventListener("click", async () => {
   const phone = $("phone-input").value.trim();
   $("phone-error").textContent = "";
@@ -112,7 +113,7 @@ async function enterApp() {
 }
 
 function startWaitingCountdown() {
-  let secondsRemaining = 60;
+  let secondsRemaining = 10;
   const countdownDisplay = $("countdown-display");
   
   countdownDisplay.textContent = secondsRemaining;
@@ -131,6 +132,7 @@ function startWaitingCountdown() {
 
 async function triggerAutoCall() {
   if (state.hasCompletedCall) return;
+  console.log("[call] triggerAutoCall invoked userId=", state.userId);
   try {
     const res = await fetch(`${SIGNALING_SERVER_URL}/calls/trigger`, {
       method: "POST",
@@ -138,8 +140,10 @@ async function triggerAutoCall() {
       body: JSON.stringify({ userId: state.userId }),
     });
     const data = await res.json();
+    console.log("[call] triggerAutoCall response", data);
     if (!data.ok) toast("Could not initiate call: " + (data.reason || data.error || ""));
-  } catch {
+  } catch (err) {
+    console.error("[call] triggerAutoCall error", err);
     toast("Could not reach the server.");
   }
 }
@@ -148,31 +152,37 @@ function connectSocket() {
   state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] });
 
   state.socket.on("connect", () => {
+    console.log("[socket] connected", { socketId: state.socket.id });
     state.socket.emit("register", { userId: state.userId, token: state.token }, (ack) => {
+      console.log("[socket] register emit userId=", state.userId);
       if (ack?.ok) {
         setPresence(true);
+        console.log("[socket] register ack ok");
       } else {
         toast("Could not register presence: " + (ack?.error || "unknown error"));
+        console.error("[socket] register ack failed", ack);
       }
     });
   });
 
-  state.socket.on("disconnect", () => setPresence(false));
+  state.socket.on("disconnect", () => {
+    console.log("[socket] disconnected");
+    setPresence(false);
+  });
 
   state.socket.on("incoming-call", ({ callId, caller }) => {
+    console.log("[call] incoming-call event", { callId, caller });
     state.currentCallId = callId;
     $("incoming-caller-name").textContent = caller || "AI Assistant";
     showScreen("screen-incoming");
-    // play ringtone (will try local ring.mp3 first)
     const ring = $("ring-audio");
     if (ring) {
-      ring.play().catch(() => {
-        // autoplay might be blocked; ignore
-      });
+      ring.play().catch(() => {});
     }
   });
 
   state.socket.on("call-ready", async ({ callId }) => {
+    console.log("[call] call-ready event", { callId, current: state.currentCallId });
     if (callId !== state.currentCallId) return;
     await startWebRtc(callId);
   });
@@ -194,10 +204,10 @@ function connectSocket() {
   // transcript-line events are ignored (transcript UI removed)
 
   state.socket.on("call-ended", ({ callId }) => {
+    console.log("[call] call-ended event", { callId, current: state.currentCallId });
     if (callId !== state.currentCallId) return;
     endCallLocally();
     toast("Call ended");
-    // stop ringtone on call end
     const ring = $("ring-audio");
     if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
   });
@@ -221,22 +231,26 @@ function setPresence(online) {
 // ---------------------------------------------------------------------------
 // Call handling
 // ---------------------------------------------------------------------------
-  $("btn-accept").addEventListener("click", () => {
-    state.socket.emit("accept-call", { callId: state.currentCallId }, (ack) => {
-      if (!ack?.ok) return toast("Could not accept call: " + (ack?.error || ""));
-      showScreen("screen-active");
-      $("active-status-text").textContent = "Connecting…";
-      // stop ringtone when call accepted
-      const ring = $("ring-audio");
-      if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
-    });
+$("btn-accept").addEventListener("click", () => {
+  console.log("[call] user accepted", { callId: state.currentCallId });
+  state.socket.emit("accept-call", { callId: state.currentCallId }, (ack) => {
+    if (!ack?.ok) {
+      console.error("[call] accept-call ack failed", ack);
+      return toast("Could not accept call: " + (ack?.error || ""));
+    }
+    console.log("[call] accept-call ack ok", { callId: state.currentCallId });
+    showScreen("screen-active");
+    $("active-status-text").textContent = "Connecting…";
+    const ring = $("ring-audio");
+    if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
+  });
 });
 
 $("btn-decline").addEventListener("click", () => {
+  console.log("[call] user declined", { callId: state.currentCallId });
   state.socket.emit("reject-call", { callId: state.currentCallId });
   showScreen("screen-home");
   state.currentCallId = null;
-  // stop ringtone on decline
   const ring = $("ring-audio");
   if (ring) try { ring.pause(); ring.currentTime = 0; } catch (e) {}
 });
@@ -255,10 +269,12 @@ $("btn-mute").addEventListener("click", () => {
 });
 
 async function startWebRtc(callId) {
+  console.log("[call] startWebRtc", { callId });
   try {
     state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
     toast("Microphone permission is required to talk.");
+    console.error("[call] getUserMedia error", err);
     return;
   }
 
@@ -276,17 +292,20 @@ async function startWebRtc(callId) {
   };
 
   state.pc.onconnectionstatechange = () => {
+    console.log("[webrtc] connection state changed", { state: state.pc.connectionState, callId });
     if (state.pc.connectionState === "connected") {
       $("active-status-text").textContent = "In progress";
       startTimer();
     }
     if (["failed", "disconnected", "closed"].includes(state.pc.connectionState)) {
+      console.warn("[webrtc] peer connection issue", { state: state.pc.connectionState, callId });
       $("active-status-text").textContent = "Call ended";
     }
   };
 
   const offer = await state.pc.createOffer();
   await state.pc.setLocalDescription(offer);
+  console.log("[webrtc] offer created", { callId });
   state.socket.emit("offer", { callId, sdp: offer });
 }
 

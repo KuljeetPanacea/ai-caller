@@ -51,6 +51,7 @@ async def disconnect():
 async def on_offer(data):
     call_id = data["callId"]
     session = sessions.get(call_id)
+    logger.info("[webrtc] offer received", {"callId": call_id, "sessionFound": bool(session)})
     if not session:
         logger.warning("offer for unknown call %s", call_id)
         return
@@ -60,12 +61,14 @@ async def on_offer(data):
         "answer",
         {"callId": call_id, "sdp": {"sdp": answer.sdp, "type": answer.type}},
     )
+    logger.info("[webrtc] answer emitted", {"callId": call_id})
 
 
 @sio.on("ice-candidate")
 async def on_ice_candidate(data):
     call_id = data["callId"]
     session = sessions.get(call_id)
+    logger.info("[webrtc] ice-candidate received", {"callId": call_id, "sessionFound": bool(session)})
     if not session or not data.get("candidate"):
         return
 
@@ -81,10 +84,12 @@ async def on_ice_candidate(data):
 
 @sio.on("call-ended")
 async def on_call_ended(data):
+    logger.info("[call] call-ended socket event received", {"callId": data.get("callId")})
     await _teardown(data["callId"])
 
 
 async def _teardown(call_id: str):
+    logger.info("[call] _teardown start", {"callId": call_id})
     session = sessions.pop(call_id, None)
     if session:
         await session.close()
@@ -101,6 +106,7 @@ async def _teardown(call_id: str):
             logger.info("call %s: interview task cancelled", call_id)
         except Exception:
             logger.exception("call %s: error while cancelling interview task", call_id)
+    logger.info("[call] _teardown complete", {"callId": call_id})
 
 
 async def emit_transcript(call_id: str, role: str, text: str):
@@ -108,6 +114,7 @@ async def emit_transcript(call_id: str, role: str, text: str):
 
 
 async def emit_call_ended(call_id: str):
+    logger.info("[call] emitting ai-call-ended from Python", {"callId": call_id})
     await sio.emit("ai-call-ended", {"callId": call_id, "reason": "completed"})
 
 
@@ -145,7 +152,9 @@ async def _connect_with_retry():
 
 @app.post("/session/start")
 async def start_session(req: StartSessionRequest):
+    logger.info("[call] /session/start request received", {"callId": req.callId, "userId": req.userId, "name": req.name, "language": req.language})
     if req.callId in sessions:
+        logger.warning("[call] /session/start duplicate session ignored", {"callId": req.callId})
         return {"ok": True, "already": True}
 
     session = CallSession(
@@ -159,7 +168,9 @@ async def start_session(req: StartSessionRequest):
     await sio.emit(
         "ai-register", {"callId": req.callId, "internalSecret": INTERNAL_SHARED_SECRET}
     )
+    logger.info("[call] /session/start ai-register emitted", {"callId": req.callId})
     await session.start()
+    logger.info("[call] /session/start CallSession.start finished", {"callId": req.callId})
 
     # Launch the Gemini voice interview manager when the call starts.
     interview = VoiceInterviewManager(
@@ -168,13 +179,14 @@ async def start_session(req: StartSessionRequest):
     )
     interview_task = asyncio.create_task(interview.run_interview())
     interviews[req.callId] = (interview, interview_task)
+    logger.info("[call] /session/start interview task created", {"callId": req.callId, "userId": req.userId})
 
-    logger.info("call %s: session started for user %s", req.callId, req.userId)
     return {"ok": True}
 
 
 @app.post("/session/stop")
 async def stop_session(req: StopSessionRequest):
+    logger.info("[call] /session/stop request received", {"callId": req.callId, "reason": req.reason})
     await _teardown(req.callId)
     return {"ok": True}
 

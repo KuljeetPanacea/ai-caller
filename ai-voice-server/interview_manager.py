@@ -33,13 +33,12 @@ CHUNK_SIZE = 1024
 
 class VoiceInterviewManager:
     def __init__(self, on_transcript=None, on_complete=None):
-        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        self.client = genai.Client()
         self.model = "gemini-3.1-flash-live-preview"
         self.p = pyaudio.PyAudio()
         self.on_transcript = on_transcript
         self.on_complete = on_complete
         
-        # State tracking
         self.current_question_idx = 0
         # self.token_log = []
         self.full_transcript = []
@@ -307,7 +306,9 @@ class VoiceInterviewManager:
 
                             # Advance index
                             self.current_question_idx += 1
+                            print(f"[interview] question advanced to index={self.current_question_idx}")
                             if self.current_question_idx >= len(PREDEFINED_QUESTIONS):
+                                print("[interview] all questions answered flag set")
                                 self.all_questions_answered = True
 
                             # Provide function output back to the model to safely trigger the next step
