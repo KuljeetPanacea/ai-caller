@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const SIGNALING_SERVER_URL = window.SIGNALING_SERVER_URL || "https://omen.radpretation.ai/ai-caller-backend";
+const SIGNALING_SERVER_URL = window.SIGNALING_SERVER_URL || "http://localhost:4000";
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   // Free public TURN (openrelay.metered.ca) — swap for your own TURN
@@ -32,6 +32,9 @@ const state = {
   muted: false,
   callTimerHandle: null,
   callStartedAt: null,
+  waitingTimerHandle: null,
+  thankYouTimerHandle: null,
+  hasCompletedCall: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -52,7 +55,7 @@ function toast(msg) {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('https://omen.radpretation.ai/ai-caller/sw.js').then(() => {
+  navigator.serviceWorker.register('./sw.js').then(() => {
     console.log('Service worker registered');
   }).catch((err) => {
     console.warn('Service worker registration failed', err);
@@ -94,14 +97,49 @@ $("btn-request-otp").addEventListener("click", async () => {
 // ---------------------------------------------------------------------------
 async function enterApp() {
   $("home-greeting").textContent = state.userName ? `Hi ${state.userName}` : "Hi there";
-  showScreen("screen-home");
+  $("waiting-greeting").textContent = state.userName ? `Hi ${state.userName}` : "Hi there";
+  showScreen("screen-waiting");
   connectSocket();
-  await loadSchedule();
-  await loadHistory();
+  
+  // Start 60-second countdown before auto-calling
+  startWaitingCountdown();
+}
+
+function startWaitingCountdown() {
+  let secondsRemaining = 60;
+  const countdownDisplay = $("countdown-display");
+  
+  countdownDisplay.textContent = secondsRemaining;
+  
+  state.waitingTimerHandle = setInterval(() => {
+    secondsRemaining--;
+    countdownDisplay.textContent = secondsRemaining;
+    
+    if (secondsRemaining <= 0) {
+      clearInterval(state.waitingTimerHandle);
+      // Trigger auto-call after countdown finishes
+      triggerAutoCall();
+    }
+  }, 1000);
+}
+
+async function triggerAutoCall() {
+  if (state.hasCompletedCall) return;
+  try {
+    const res = await fetch(`${SIGNALING_SERVER_URL}/calls/trigger`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: state.userId }),
+    });
+    const data = await res.json();
+    if (!data.ok) toast("Could not initiate call: " + (data.reason || data.error || ""));
+  } catch {
+    toast("Could not reach the server.");
+  }
 }
 
 function connectSocket() {
-  state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] });
+  state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] ,path: "/ai-caller-backend/socket.io" } );
 
   state.socket.on("connect", () => {
     state.socket.emit("register", { userId: state.userId, token: state.token }, (ack) => {
@@ -267,6 +305,7 @@ function startTimer() {
 
 function endCallLocally() {
   clearInterval(state.callTimerHandle);
+  clearInterval(state.waitingTimerHandle);
   $("call-timer").textContent = "00:00";
   if (state.pc) {
     state.pc.close();
@@ -278,107 +317,27 @@ function endCallLocally() {
   }
   state.currentCallId = null;
   state.muted = false;
+  state.hasCompletedCall = true;
   $("btn-mute").classList.remove("active");
-  showScreen("screen-home");
+  showScreen("screen-thank-you");
   loadHistory();
+  clearTimeout(state.thankYouTimerHandle);
+  state.thankYouTimerHandle = setTimeout(goHome, 5000);
 }
 
-// ---------------------------------------------------------------------------
-// Schedule management
-// ---------------------------------------------------------------------------
-async function authedFetch(path, options = {}) {
-  return fetch(`${SIGNALING_SERVER_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${state.token}`,
-      "Content-Type": "application/json",
-    },
-  });
+function goHome() {
+  clearTimeout(state.thankYouTimerHandle);
+  showScreen("screen-home");
 }
 
-let scheduleTimes = [];
-
-async function loadSchedule() {
-  try {
-    const res = await authedFetch("/ai-caller/auth/me");
-    const data = await res.json();
-    // /ai-caller/auth/me doesn't return schedule; keep a local cache as source of truth
-    // for the UI and persist via PATCH whenever it changes.
-    scheduleTimes = JSON.parse(localStorage.getItem("signal_schedule") || "[]");
-    renderSchedule();
-  } catch {
-    renderSchedule();
-  }
-}
-
-function renderSchedule() {
-  const list = $("schedule-list");
-  list.innerHTML = "";
-  if (scheduleTimes.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.style.margin = "4px 0 0";
-    empty.textContent = "No check-in times yet. Add one below.";
-    list.appendChild(empty);
-    return;
-  }
-  scheduleTimes.forEach((time) => {
-    const chip = document.createElement("div");
-    chip.className = "schedule-chip";
-    chip.innerHTML = `<span>${time}</span><button aria-label="Remove">✕</button>`;
-    chip.querySelector("button").addEventListener("click", () => removeScheduleTime(time));
-    list.appendChild(chip);
-  });
-}
-
-$("btn-add-schedule").addEventListener("click", async () => {
-  const time = $("schedule-time-input").value;
-  if (!time) return toast("Pick a time first.");
-  if (scheduleTimes.includes(time)) return;
-  scheduleTimes.push(time);
-  scheduleTimes.sort();
-  await persistSchedule();
-});
-
-async function removeScheduleTime(time) {
-  scheduleTimes = scheduleTimes.filter((t) => t !== time);
-  await persistSchedule();
-}
-
-async function persistSchedule() {
-  localStorage.setItem("signal_schedule", JSON.stringify(scheduleTimes));
-  renderSchedule();
-  try {
-    await authedFetch(`/ai-caller/users/${state.userId}/schedule`, {
-      method: "PATCH",
-      body: JSON.stringify({ times: scheduleTimes }),
-    });
-  } catch {
-    toast("Saved locally, but could not sync with the server.");
-  }
-}
-
-$("btn-test-call").addEventListener("click", async () => {
-  try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/calls/trigger`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: state.userId }),
-    });
-    const data = await res.json();
-    if (!data.ok) toast("Could not trigger call: " + (data.reason || data.error || ""));
-  } catch {
-    toast("Could not reach the server.");
-  }
-});
+$("screen-thank-you").addEventListener("click", goHome);
 
 // ---------------------------------------------------------------------------
 // History
 // ---------------------------------------------------------------------------
 async function loadHistory() {
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/calls/${state.userId}`);
+    const res = await fetch(`${SIGNALING_SERVER_URL}/calls/${state.userId}`);
     const data = await res.json();
     renderHistory(data.calls || []);
   } catch {
