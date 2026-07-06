@@ -52,7 +52,7 @@ function toast(msg) {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').then(() => {
+  navigator.serviceWorker.register('http://localhost:4000/ai-caller/sw.js').then(() => {
     console.log('Service worker registered');
   }).catch((err) => {
     console.warn('Service worker registration failed', err);
@@ -68,7 +68,7 @@ $("btn-request-otp").addEventListener("click", async () => {
   if (!phone) return ($("phone-error").textContent = "Enter a phone number.");
 
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/auth/login`, {
+    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
@@ -301,9 +301,9 @@ let scheduleTimes = [];
 
 async function loadSchedule() {
   try {
-    const res = await authedFetch("/auth/me");
+    const res = await authedFetch("/ai-caller/auth/me");
     const data = await res.json();
-    // /auth/me doesn't return schedule; keep a local cache as source of truth
+    // /ai-caller/auth/me doesn't return schedule; keep a local cache as source of truth
     // for the UI and persist via PATCH whenever it changes.
     scheduleTimes = JSON.parse(localStorage.getItem("signal_schedule") || "[]");
     renderSchedule();
@@ -350,7 +350,7 @@ async function persistSchedule() {
   localStorage.setItem("signal_schedule", JSON.stringify(scheduleTimes));
   renderSchedule();
   try {
-    await authedFetch(`/users/${state.userId}/schedule`, {
+    await authedFetch(`/ai-caller/users/${state.userId}/schedule`, {
       method: "PATCH",
       body: JSON.stringify({ times: scheduleTimes }),
     });
@@ -361,7 +361,7 @@ async function persistSchedule() {
 
 $("btn-test-call").addEventListener("click", async () => {
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/calls/trigger`, {
+    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/calls/trigger`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: state.userId }),
@@ -378,7 +378,7 @@ $("btn-test-call").addEventListener("click", async () => {
 // ---------------------------------------------------------------------------
 async function loadHistory() {
   try {
-    const res = await fetch(`${SIGNALING_SERVER_URL}/calls/${state.userId}`);
+    const res = await fetch(`${SIGNALING_SERVER_URL}/ai-caller/calls/${state.userId}`);
     const data = await res.json();
     renderHistory(data.calls || []);
   } catch {

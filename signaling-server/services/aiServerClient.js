@@ -1,6 +1,7 @@
 const AI_VOICE_SERVER_URL = process.env.AI_VOICE_SERVER_URL || "http://localhost:8098";
 
 async function startAiSession({ callId, userId, name, language }) {
+  console.log(`${AI_VOICE_SERVER_URL}/session/start`);
   const res = await fetch(`${AI_VOICE_SERVER_URL}/session/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

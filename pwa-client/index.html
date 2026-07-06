@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Signal - AI Voice Calls</title>
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="http://localhost:4000/ai-caller/manifest.json" />
   <meta name="theme-color" content="#0B0E14" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="http://localhost:4000/ai-caller/style.css" />
 </head>
 <body>
   <div class="app-frame">
@@ -111,12 +111,12 @@
     <div class="toast" id="toast"></div>
     <audio id="remote-audio" autoplay playsinline></audio>
     <!-- Ringtone audio (place ring.mp3 in this folder to use a custom tone) -->
-    <audio id="ring-audio" src="ring.mp3" loop></audio>
+    <audio id="ring-audio" src="http://localhost:4000/ai-caller/ring.mp3" loop></audio>
     <!-- Install button for PWA (revealed by script) -->
     <button id="btn-install" style="display:none;position:fixed;top:12px;right:12px;z-index:1000;">Install</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="app.js"></script>
+  <script src="http://localhost:4000/ai-caller/app.js"></script>
 </body>
 </html>

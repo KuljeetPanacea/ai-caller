@@ -16,14 +16,17 @@ const app = express();
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*" }));
 app.use(express.json());
 
-app.use("/auth", authRoutes);
-app.use("/users", usersRoutes);
+// Create a router for all /ai-caller routes
+const apiRouter = express.Router();
 
-app.get("/health", (req, res) => res.json({ ok: true }));
+apiRouter.use("/auth", authRoutes);
+apiRouter.use("/users", usersRoutes);
+
+apiRouter.get("/health", (req, res) => res.json({ ok: true }));
 
 // Manual test trigger: POST /calls/trigger { userId }
 // Lets you fire an AI-initiated call on demand instead of waiting for the cron scheduler.
-app.post("/calls/trigger", async (req, res) => {
+apiRouter.post("/calls/trigger", async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId is required" });
@@ -35,10 +38,14 @@ app.post("/calls/trigger", async (req, res) => {
 });
 
 // Simple call history lookup for a user
-app.get("/calls/:userId", async (req, res) => {
+apiRouter.get("/calls/:userId", async (req, res) => {
   const calls = await Call.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(50);
   res.json({ calls });
 });
+
+// Mount all routes under /ai-caller prefix
+app.use("/ai-caller", express.static("../pwa-client"));
+app.use("/ai-caller", apiRouter);
 
 const server = http.createServer(app);
 const io = new Server(server, {
