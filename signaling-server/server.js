@@ -13,7 +13,7 @@ const { startScheduler } = require("./services/scheduler");
 const Call = require("./models/Call");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*" }));
 app.use(express.json());
 
 app.use("/auth", authRoutes);
