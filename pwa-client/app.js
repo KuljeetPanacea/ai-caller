@@ -148,7 +148,7 @@ async function triggerAutoCall() {
   }
 }
 
-function connectSocket() {
+function    cket() {
   state.socket = io(SIGNALING_SERVER_URL, { transports: ["websocket"] });
 
   state.socket.on("connect", () => {

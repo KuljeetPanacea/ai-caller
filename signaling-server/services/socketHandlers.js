@@ -201,11 +201,9 @@ function registerSocketHandlers(io) {
 // Used by the scheduler to push a fresh incoming-call ring to a specific user.
 async function ringUser(io, userId, { reason } = {}) {
   const user = await User.findById(userId);
-  console.log("[call] ringUser found user", {user});
   console.log("[call] ringUser input", { userId, online: user?.online, reason });
-  if (!user || !user.online) {
-    console.log("[call] ringUser aborted user_offline", { userId });
-    return { ok: false, reason: "user_offline" };
+  if (!user) {
+    return { ok: false, reason: "user_not_found" };
   }
 
   const callId = randomUUID();

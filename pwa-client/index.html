@@ -2,133 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Signal - AI Voice Calls</title>
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0B0E14" />
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app-frame">
-
-    <!-- ===================== AUTH ===================== -->
-    <section id="screen-auth" class="screen auth-screen active">
-      <div class="auth-mark">S</div>
-      <p class="eyebrow">Signal</p>
-      <h1>Your AI keeps in touch</h1>
-      <p class="subtitle">Enter your registered phone number to continue. If your number is not found, the app will tell you you are not registered.</p>
-
-      <div class="field">
-        <label for="phone-input">Phone number</label>
-        <input id="phone-input" type="tel" placeholder="9499346014" autocomplete="tel" />
-      </div>
-      <p class="error-text" id="phone-error"></p>
-      <button class="btn btn-primary btn-block" id="btn-request-otp">Continue</button>
-    </section>
-
-    <!-- ===================== WAITING FOR CALL ===================== -->
-    <section id="screen-waiting" class="screen waiting-screen">
-      <div class="waiting-content">
-        <p class="eyebrow">Signal</p>
-        <h1 id="waiting-greeting">Hi there</h1>
-        <p class="subtitle">Your AI assistant is preparing to call you...</p>
-        
-        <div class="waiting-timer">
-          <div class="countdown" id="countdown-display">60</div>
-          <p class="countdown-label">seconds</p>
-        </div>
-
-        <p class="waiting-info">Please keep your microphone enabled for the call.</p>
-      </div>
-    </section>
-
-    <!-- ===================== HOME ===================== -->
-    <section id="screen-home" class="screen home-screen">
-      <div class="home-header">
-        <div>
-          <p class="eyebrow">Signal</p>
-          <h1 id="home-greeting">Hi there</h1>
-        </div>
-        <div class="presence-pill" id="presence-pill">
-          <span class="presence-dot"></span>
-          <span id="presence-text">Connecting</span>
-        </div>
-      </div>
-
-      <div class="status-card history-preview">
-        <p class="label">Recent calls</p>
-        <div id="history-list"></div>
-      </div>
-    </section>
-
-    <!-- ===================== INCOMING CALL ===================== -->
-    <section id="screen-incoming" class="screen call-screen">
-      <div class="caller-block">
-        <div class="pulse-wrap">
-          <div class="pulse-ring"></div>
-          <div class="pulse-ring"></div>
-          <div class="pulse-ring"></div>
-          <div class="avatar">AI</div>
-        </div>
-        <p class="caller-name" id="incoming-caller-name">AI Assistant</p>
-        <p class="call-status-text">Incoming call…</p>
-      </div>
-
-      <div class="call-controls incoming">
-        <div>
-          <button class="round-btn decline" id="btn-decline" aria-label="Decline">✕</button>
-          <p class="icon-label">Decline</p>
-        </div>
-        <div>
-          <button class="round-btn accept" id="btn-accept" aria-label="Accept">✓</button>
-          <p class="icon-label">Accept</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== ACTIVE CALL ===================== -->
-    <section id="screen-active" class="screen call-screen">
-      <div class="caller-block">
-        <div class="pulse-wrap">
-          <div class="avatar">AI</div>
-        </div>
-        <p class="caller-name">AI Assistant</p>
-        <p class="call-status-text" id="active-status-text">Connecting…</p>
-        <p class="call-timer" id="call-timer">00:00</p>
-      </div>
-
-      <!-- transcript removed from UI by user request -->
-
-      <div class="call-controls">
-        <div>
-          <button class="round-btn mute" id="btn-mute" aria-label="Mute">🎤</button>
-          <p class="icon-label">Mute</p>
-        </div>
-        <div>
-          <button class="round-btn end" id="btn-end" aria-label="End call">✕</button>
-          <p class="icon-label">End</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== THANK YOU ===================== -->
-    <section id="screen-thank-you" class="screen thank-you-screen">
-      <div class="thank-you-content">
-        <div class="thank-you-icon">🙏</div>
-        <h1>Thank you!</h1>
-        <p class="subtitle">Your call has ended. Have a great day!</p>
-      </div>
-    </section>
-
-    <div class="toast" id="toast"></div>
-    <audio id="remote-audio" autoplay playsinline></audio>
-    <!-- Ringtone audio (place ring.mp3 in this folder to use a custom tone) -->
-    <audio id="ring-audio" src="ring.mp3" loop></audio>
-    <!-- Install button for PWA (revealed by script) -->
-    <button id="btn-install" style="display:none;position:fixed;top:12px;right:12px;z-index:1000;">Install</button>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="app.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
